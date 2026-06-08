@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SchoolCast — Live Podcast Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --card: #1a1a24;
+    --border: #2a2a38;
+    --accent: #f0522a;
+    --accent2: #ffb347;
+    --green: #2ecc71;
+    --red: #e74c3c;
+    --text: #f0ede8;
+    --muted: #7a7a9a;
+    --glow: rgba(240,82,42,0.18);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grain */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0;
+  }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 36px;
+    border-bottom: 1px solid var(--border);
+    position: relative; z-index: 10;
+  }
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.5rem; font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .logo span { color: var(--accent); }
+  .live-badge {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(231,76,60,0.12);
+    border: 1px solid rgba(231,76,60,0.3);
+    border-radius: 100px;
+    padding: 6px 14px;
+    font-size: 0.78rem; font-weight: 500; letter-spacing: 1px;
+    color: var(--red);
+    opacity: 0; transition: opacity 0.4s;
+  }
+  .live-badge.active { opacity: 1; }
+  .live-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--red);
+    animation: pulse 1.2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
+
+  .studio {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 24px;
+    padding: 28px 36px;
+    max-width: 1400px;
+    margin: 0 auto;
+    position: relative; z-index: 5;
+  }
+
+  /* LEFT PANEL */
+  .main-panel { display: flex; flex-direction: column; gap: 20px; }
+
+  .room-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+  }
+
+  .room-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 22px;
+  }
+  .room-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.15rem; font-weight: 700;
+  }
+  .episode-tag {
+    font-size: 0.72rem; color: var(--muted);
+    background: var(--surface);
+    padding: 4px 10px; border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+
+  /* Participants */
+  .participants {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .participant-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px;
+    transition: border-color 0.3s;
+    position: relative; overflow: hidden;
+  }
+  .participant-card.speaking {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 20px var(--glow);
+  }
+  .participant-card.speaking::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center top, rgba(240,82,42,0.07), transparent 70%);
+  }
+  .avatar-ring {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem;
+    background: var(--card);
+    position: relative;
+    transition: border-color 0.3s;
+  }
+  .speaking .avatar-ring {
+    border-color: var(--accent);
+  }
+  .sound-waves {
+    position: absolute; inset: -4px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    animation: ripple 1.2s infinite;
+    opacity: 0;
+    display: none;
+  }
+  .speaking .sound-waves { display: block; }
+  @keyframes ripple {
+    0% { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(1.5); opacity: 0; }
+  }
+  .p-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem; font-weight: 700;
+  }
+  .p-role {
+    font-size: 0.72rem; color: var(--muted);
+    background: var(--card);
+    padding: 3px 10px; border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+  .mic-status {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.75rem; color: var(--muted);
+  }
+  .mic-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+  .mic-dot.on { background: var(--green); }
+  .volume-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .volume-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    width: 0%;
+    transition: width 0.1s;
+    border-radius: 2px;
+  }
+
+  /* Waveform visualizer */
+  .waveform-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .waveform-label {
+    font-size: 0.72rem; color: var(--muted);
+    letter-spacing: 1px; text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  canvas#waveform {
+    width: 100%; height: 60px;
+    display: block;
+    border-radius: 6px;
+  }
+
+  /* Controls */
+  .controls {
+    display: flex; align-items: center; justify-content: center;
+    gap: 14px; flex-wrap: wrap;
+  }
+  .btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 11px 22px;
+    border-radius: 100px;
+    border: none; cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem; font-weight: 500;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+  }
+  .btn-primary:hover { background: #d4431d; transform: translateY(-1px); }
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger {
+    background: rgba(231,76,60,0.12);
+    color: var(--red);
+    border: 1px solid rgba(231,76,60,0.3);
+  }
+  .btn-danger:hover { background: rgba(231,76,60,0.22); }
+  .btn-record {
+    background: rgba(231,76,60,0.12);
+    color: var(--red);
+    border: 1px solid rgba(231,76,60,0.3);
+  }
+  .btn-record.recording {
+    background: var(--red);
+    color: white;
+    animation: recPulse 2s infinite;
+  }
+  @keyframes recPulse { 0%,100%{box-shadow:0 0 0 0 rgba(231,76,60,0.4)} 50%{box-shadow:0 0 0 8px rgba(231,76,60,0)} }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .icon { font-size: 1rem; }
+
+  /* Timer */
+  .timer-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 20px;
+  }
+  .timer-display {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem; font-weight: 800;
+    letter-spacing: 2px;
+    color: var(--accent);
+  }
+  .timer-label { font-size: 0.72rem; color: var(--muted); letter-spacing: 1px; }
+
+  /* RIGHT PANEL */
+  .side-panel { display: flex; flex-direction: column; gap: 20px; }
+
+  .panel-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 22px;
+  }
+  .panel-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem; font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-title .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+  }
+
+  /* Script panel */
+  .script-list { display: flex; flex-direction: column; gap: 8px; }
+  .script-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+  }
+  .script-item:hover { border-left-color: var(--accent2); color: var(--text); }
+  .script-item.active {
+    border-left-color: var(--accent);
+    background: rgba(240,82,42,0.07);
+    color: var(--text);
+  }
+  .script-item .q-label {
+    font-size: 0.65rem; color: var(--accent);
+    letter-spacing: 1px; text-transform: uppercase;
+    margin-bottom: 3px; font-weight: 600;
+  }
+
+  /* Notes */
+  .notes-area {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    padding: 12px;
+    resize: none;
+    min-height: 100px;
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: 1.6;
+  }
+  .notes-area:focus { border-color: var(--accent); }
+  .notes-area::placeholder { color: var(--muted); }
+
+  /* Join room */
+  .join-form { display: flex; flex-direction: column; gap: 10px; }
+  .join-input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+  .join-input:focus { border-color: var(--accent); }
+  .join-input::placeholder { color: var(--muted); }
+  .join-select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    padding: 10px 14px;
+    outline: none;
+    width: 100%;
+    cursor: pointer;
+  }
+
+  /* Status message */
+  .status-msg {
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--muted);
+    padding: 8px;
+    min-height: 28px;
+    transition: color 0.3s;
+  }
+  .status-msg.success { color: var(--green); }
+  .status-msg.error { color: var(--red); }
+  .status-msg.info { color: var(--accent2); }
+
+  /* Recordings list */
+  .rec-list { display: flex; flex-direction: column; gap: 8px; }
+  .rec-item {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.78rem;
+  }
+  .rec-item a {
+    color: var(--accent2); text-decoration: none;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .rec-item a:hover { text-decoration: underline; }
+  .rec-time { color: var(--muted); font-size: 0.72rem; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .script-scroll { max-height: 300px; overflow-y: auto; padding-right: 4px; }
+
+  @media (max-width: 900px) {
+    .studio { grid-template-columns: 1fr; }
+    header { padding: 16px 20px; }
+    .studio { padding: 16px 20px; }
+    .participants { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">School<span>Cast</span> 🎙️</div>
+  <div class="live-badge" id="liveBadge">
+    <div class="live-dot"></div> ON AIR
+  </div>
+  <div style="font-size:0.78rem; color:var(--muted);">What We Wish You Knew</div>
+</header>
+
+<div class="studio">
+
+  <!-- LEFT: MAIN STUDIO -->
+  <div class="main-panel">
+
+    <!-- Join Setup -->
+    <div class="room-card" id="joinSection">
+      <div class="room-header">
+        <div class="room-title">🎤 Join Studio</div>
+      </div>
+      <div class="join-form">
+        <input class="join-input" id="nameInput" placeholder="Your name (e.g. Ms. Sharma / Rahul)" />
+        <select class="join-select" id="roleSelect">
+          <option value="host">🎧 Host (Interviewer)</option>
+          <option value="guest">🎤 Teacher (Guest)</option>
+        </select>
+        <input class="join-input" id="roomInput" placeholder="Room code (share with partner)" value="schoolcast-001" />
+        <button class="btn btn-primary" onclick="joinStudio()" style="width:100%; justify-content:center;">
+          <span class="icon">🚀</span> Enter Studio
+        </button>
+      </div>
+      <div class="status-msg" id="joinStatus"></div>
+    </div>
+
+    <!-- Live Studio (hidden until join) -->
+    <div class="room-card" id="studioSection" style="display:none;">
+      <div class="room-header">
+        <div class="room-title">🎙️ Live Studio</div>
+        <div class="episode-tag" id="roomTag">Room: —</div>
+      </div>
+
+      <!-- Participants -->
+      <div class="participants">
+        <div class="participant-card" id="selfCard">
+          <div class="avatar-ring">
+            <div class="sound-waves"></div>
+            <span id="selfEmoji">🎧</span>
+          </div>
+          <div class="p-name" id="selfName">You</div>
+          <div class="p-role" id="selfRole">Host</div>
+          <div class="mic-status">
+            <div class="mic-dot on" id="selfMicDot"></div>
+            <span id="selfMicLabel">Mic On</span>
+          </div>
+          <div class="volume-bar"><div class="volume-fill" id="selfVolume"></div></div>
+        </div>
+        <div class="participant-card" id="remoteCard">
+          <div class="avatar-ring">
+            <div class="sound-waves"></div>
+            <span id="remoteEmoji">⏳</span>
+          </div>
+          <div class="p-name" id="remoteName">Waiting...</div>
+          <div class="p-role" id="remoteRole">Connecting</div>
+          <div class="mic-status">
+            <div class="mic-dot" id="remoteMicDot"></div>
+            <span id="remoteMicLabel">Not connected</span>
+          </div>
+          <div class="volume-bar"><div class="volume-fill" id="remoteVolume"></div></div>
+        </div>
+      </div>
+
+      <!-- Waveform -->
+      <div class="waveform-container">
+        <div class="waveform-label">🔊 Audio Waveform</div>
+        <canvas id="waveform"></canvas>
+      </div>
+
+      <!-- Timer -->
+      <div class="timer-bar" style="margin-bottom:20px;">
+        <div>
+          <div class="timer-label">RECORDING TIME</div>
+          <div class="timer-display" id="timerDisplay">00:00:00</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <button class="btn btn-secondary" id="muteBtn" onclick="toggleMute()">
+            <span class="icon">🎤</span> Mute
+          </button>
+          <button class="btn btn-record" id="recordBtn" onclick="toggleRecord()">
+            <span class="icon">⏺</span> Record
+          </button>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <button class="btn btn-secondary" onclick="copyRoomLink()">
+          <span class="icon">🔗</span> Copy Room Link
+        </button>
+        <button class="btn btn-danger" onclick="leaveStudio()">
+          <span class="icon">📵</span> Leave
+        </button>
+      </div>
+      <div class="status-msg" id="studioStatus"></div>
+    </div>
+
+    <!-- Recordings -->
+    <div class="panel-card" id="recordingsCard" style="display:none;">
+      <div class="panel-title"><div class="dot"></div> Saved Recordings</div>
+      <div class="rec-list" id="recList">
+        <div style="font-size:0.8rem;color:var(--muted);">No recordings yet. Hit Record to start!</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: SCRIPT + NOTES -->
+  <div class="side-panel">
+
+    <!-- Script Questions -->
+    <div class="panel-card">
+      <div class="panel-title"><div class="dot"></div> Episode Script</div>
+      <div class="script-scroll">
+        <div class="script-list" id="scriptList"></div>
+      </div>
+    </div>
+
+    <!-- Live Notes -->
+    <div class="panel-card">
+      <div class="panel-title"><div class="dot"></div> Live Notes</div>
+      <textarea class="notes-area" id="notesArea" placeholder="Jot down key points during the interview...&#10;&#10;E.g. Great answer on failure — use as highlight!"></textarea>
+      <button class="btn btn-secondary" onclick="copyNotes()" style="margin-top:10px;width:100%;justify-content:center;">
+        <span class="icon">📋</span> Copy Notes
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── SCRIPT QUESTIONS ───────────────────────────────────────────────
+const scriptQuestions = [
+  { label: "INTRO", text: "Welcome! Introduce yourself — who is [Teacher Name] outside the classroom?" },
+  { label: "ICEBREAKER", text: "Were you a good student when you were their age? Be honest!" },
+  { label: "Q1", text: "Is school really just about marks and exams? What should it truly be about?" },
+  { label: "Q2", text: "What would you tell a student who is completely overwhelmed right now?" },
+  { label: "Q3", text: "Do you think the education system is designed well for today's students?" },
+  { label: "Q4", text: "Have you ever failed at something? How did you deal with it?" },
+  { label: "Q5", text: "What do students get most wrong about failure?" },
+  { label: "Q6", text: "What's one habit you see in students who bounce back vs those who stop trying?" },
+  { label: "Q7", text: "If you could give your teenage self ONE piece of advice, what would it be?" },
+  { label: "Q8", text: "What's the most important lesson life teaches that no textbook can?" },
+  { label: "Q9", text: "Do teachers really understand the pressure students are under today?" },
+  { label: "Q10", text: "What would you want every student at our school to hear directly from you?" },
+  { label: "RAPID 🔥", text: "Homework — necessary or overrated?" },
+  { label: "RAPID 🔥", text: "One word to describe today's students?" },
+  { label: "RAPID 🔥", text: "Secret talent students don't know about?" },
+  { label: "OUTRO", text: "Thank you so much! Any final words for our listeners?" },
+];
+
+function buildScript() {
+  const list = document.getElementById('scriptList');
+  scriptQuestions.forEach((q, i) => {
+    const div = document.createElement('div');
+    div.className = 'script-item';
+    div.id = `q-${i}`;
+    div.innerHTML = `<div class="q-label">${q.label}</div>${q.text}`;
+    div.onclick = () => setActiveQ(i);
+    list.appendChild(div);
+  });
+}
+let activeQ = 0;
+function setActiveQ(i) {
+  document.querySelectorAll('.script-item').forEach(el => el.classList.remove('active'));
+  document.getElementById(`q-${i}`)?.classList.add('active');
+  activeQ = i;
+}
+buildScript();
+setActiveQ(0);
+
+// ─── WEBRTC SETUP ────────────────────────────────────────────────────
+let localStream = null;
+let peerConnection = null;
+let isMuted = false;
+let isRecording = false;
+let mediaRecorder = null;
+let recordedChunks = [];
+let timerInterval = null;
+let seconds = 0;
+let audioContext, analyser, selfSource, remoteAnalyser;
+let myName = '', myRole = '';
+
+const ICE_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+// Simulated signaling via BroadcastChannel (works same device/tab — for same-school WiFi use a signaling server)
+let bc = null;
+
+function setStatus(id, msg, type='') {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = `status-msg ${type}`;
+}
+
+async function joinStudio() {
+  const name = document.getElementById('nameInput').value.trim();
+  const role = document.getElementById('roleSelect').value;
+  const room = document.getElementById('roomInput').value.trim();
+  if (!name) { setStatus('joinStatus', 'Please enter your name!', 'error'); return; }
+  if (!room) { setStatus('joinStatus', 'Please enter a room code!', 'error'); return; }
+
+  myName = name; myRole = role;
+  setStatus('joinStatus', 'Requesting microphone...', 'info');
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch(e) {
+    setStatus('joinStatus', '❌ Microphone access denied. Please allow mic access.', 'error');
+    return;
+  }
+
+  document.getElementById('joinSection').style.display = 'none';
+  document.getElementById('studioSection').style.display = 'block';
+  document.getElementById('recordingsCard').style.display = 'block';
+  document.getElementById('roomTag').textContent = `Room: ${room}`;
+  document.getElementById('selfName').textContent = name;
+  document.getElementById('selfRole').textContent = role === 'host' ? '🎧 Host' : '🎤 Teacher';
+  document.getElementById('selfEmoji').textContent = role === 'host' ? '🎧' : '🎤';
+  document.getElementById('liveBadge').classList.add('active');
+
+  setupAudioVisualization();
+
+  // BroadcastChannel for signaling (same browser/device demo; for network use a free signaling server)
+  bc = new BroadcastChannel(`schoolcast-${room}`);
+  bc.onmessage = handleSignal;
+
+  // Initiate connection if host
+  if (role === 'host') {
+    setStatus('studioStatus', '🔗 Waiting for teacher to join...', 'info');
+    await initiatePeer();
+  } else {
+    setStatus('studioStatus', '🔗 Connecting to host...', 'info');
+    // Wait for offer
+  }
+}
+
+async function initiatePeer() {
+  peerConnection = new RTCPeerConnection(ICE_SERVERS);
+  localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+
+  peerConnection.onicecandidate = e => {
+    if (e.candidate) bc.postMessage({ type: 'ice', candidate: e.candidate });
+  };
+  peerConnection.ontrack = e => {
+    setRemoteStream(e.streams[0]);
+  };
+  peerConnection.onconnectionstatechange = () => {
+    if (peerConnection.connectionState === 'connected') onConnected();
+  };
+
+  const offer = await peerConnection.createOffer();
+  await peerConnection.setLocalDescription(offer);
+  bc.postMessage({ type: 'offer', sdp: offer });
+}
+
+async function handleSignal(e) {
+  const msg = e.data;
+
+  if (msg.type === 'offer' && myRole === 'guest') {
+    peerConnection = new RTCPeerConnection(ICE_SERVERS);
+    localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+    peerConnection.onicecandidate = ev => {
+      if (ev.candidate) bc.postMessage({ type: 'ice', candidate: ev.candidate });
+    };
+    peerConnection.ontrack = ev => setRemoteStream(ev.streams[0]);
+    peerConnection.onconnectionstatechange = () => {
+      if (peerConnection.connectionState === 'connected') onConnected();
+    };
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    bc.postMessage({ type: 'answer', sdp: answer });
+
+  } else if (msg.type === 'answer' && myRole === 'host') {
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+
+  } else if (msg.type === 'ice') {
+    try { await peerConnection?.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch(e){}
+
+  } else if (msg.type === 'meta') {
+    document.getElementById('remoteName').textContent = msg.name;
+    document.getElementById('remoteRole').textContent = msg.role === 'host' ? '🎧 Host' : '🎤 Teacher';
+    document.getElementById('remoteEmoji').textContent = msg.role === 'host' ? '🎧' : '🎤';
+    document.getElementById('remoteMicDot').classList.add('on');
+    document.getElementById('remoteMicLabel').textContent = 'Mic On';
+  }
+}
+
+function onConnected() {
+  setStatus('studioStatus', '✅ Connected! You can start talking.', 'success');
+  bc.postMessage({ type: 'meta', name: myName, role: myRole });
+  setTimeout(() => setStatus('studioStatus', '', ''), 3000);
+}
+
+function setRemoteStream(stream) {
+  const audio = new Audio();
+  audio.srcObject = stream;
+  audio.play();
+  setupRemoteVisualization(stream);
+}
+
+// ─── AUDIO VISUALIZATION ─────────────────────────────────────────────
+function setupAudioVisualization() {
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioContext.createAnalyser();
+  analyser.fftSize = 256;
+  selfSource = audioContext.createMediaStreamSource(localStream);
+  selfSource.connect(analyser);
+  drawWaveform();
+  monitorVolume(analyser, 'selfVolume', 'selfCard');
+}
+
+function setupRemoteVisualization(stream) {
+  remoteAnalyser = audioContext.createAnalyser();
+  remoteAnalyser.fftSize = 256;
+  const remoteSource = audioContext.createMediaStreamSource(stream);
+  remoteSource.connect(remoteAnalyser);
+  monitorVolume(remoteAnalyser, 'remoteVolume', 'remoteCard');
+}
+
+function monitorVolume(analyserNode, barId, cardId) {
+  const data = new Uint8Array(analyserNode.fftSize);
+  function check() {
+    analyserNode.getByteTimeDomainData(data);
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) sum += Math.abs(data[i] - 128);
+    const avg = sum / data.length;
+    const pct = Math.min(100, avg * 6);
+    document.getElementById(barId).style.width = pct + '%';
+    const card = document.getElementById(cardId);
+    if (avg > 4) card.classList.add('speaking');
+    else card.classList.remove('speaking');
+    requestAnimationFrame(check);
+  }
+  check();
+}
+
+function drawWaveform() {
+  const canvas = document.getElementById('waveform');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * window.devicePixelRatio || 600;
+  canvas.height = 120;
+  const data = new Uint8Array(analyser.fftSize);
+  function draw() {
+    requestAnimationFrame(draw);
+    analyser.getByteTimeDomainData(data);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#f0522a';
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = '#f0522a88';
+    ctx.beginPath();
+    const sliceW = canvas.width / data.length;
+    let x = 0;
+    for (let i = 0; i < data.length; i++) {
+      const v = data[i] / 128;
+      const y = (v * canvas.height) / 2;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      x += sliceW;
+    }
+    ctx.lineTo(canvas.width, canvas.height / 2);
+    ctx.stroke();
+  }
+  draw();
+}
+
+// ─── MIC / RECORD / TIMER ─────────────────────────────────────────────
+function toggleMute() {
+  isMuted = !isMuted;
+  localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+  const btn = document.getElementById('muteBtn');
+  const dot = document.getElementById('selfMicDot');
+  const label = document.getElementById('selfMicLabel');
+  btn.innerHTML = isMuted
+    ? '<span class="icon">🔇</span> Unmute'
+    : '<span class="icon">🎤</span> Mute';
+  dot.className = isMuted ? 'mic-dot' : 'mic-dot on';
+  label.textContent = isMuted ? 'Muted' : 'Mic On';
+}
+
+function toggleRecord() {
+  if (!isRecording) startRecording();
+  else stopRecording();
+}
+
+function startRecording() {
+  recordedChunks = [];
+  const dest = audioContext.createMediaStreamDestination();
+  selfSource.connect(dest);
+  if (remoteAnalyser) {
+    // Connect remote to dest too — already handled via audio element
+  }
+  // Record local mic for now (full mix needs AudioContext merging)
+  mediaRecorder = new MediaRecorder(localStream);
+  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+  mediaRecorder.onstop = saveRecording;
+  mediaRecorder.start();
+  isRecording = true;
+  seconds = 0;
+  timerInterval = setInterval(() => {
+    seconds++;
+    const h = String(Math.floor(seconds/3600)).padStart(2,'0');
+    const m = String(Math.floor((seconds%3600)/60)).padStart(2,'0');
+    const s = String(seconds%60).padStart(2,'0');
+    document.getElementById('timerDisplay').textContent = `${h}:${m}:${s}`;
+  }, 1000);
+  const btn = document.getElementById('recordBtn');
+  btn.innerHTML = '<span class="icon">⏹</span> Stop';
+  btn.classList.add('recording');
+  document.getElementById('liveBadge').classList.add('active');
+  setStatus('studioStatus', '⏺ Recording started!', 'error');
+}
+
+function stopRecording() {
+  mediaRecorder?.stop();
+  clearInterval(timerInterval);
+  isRecording = false;
+  const btn = document.getElementById('recordBtn');
+  btn.innerHTML = '<span class="icon">⏺</span> Record';
+  btn.classList.remove('recording');
+  setStatus('studioStatus', '✅ Recording saved!', 'success');
+  setTimeout(() => setStatus('studioStatus', '', ''), 3000);
+}
+
+function saveRecording() {
+  const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+  const url = URL.createObjectURL(blob);
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString();
+  const list = document.getElementById('recList');
+  if (list.querySelector('div[style]')) list.innerHTML = '';
+  const item = document.createElement('div');
+  item.className = 'rec-item';
+  item.innerHTML = `
+    <a href="${url}" download="podcast-${Date.now()}.webm">⬇️ Download Recording</a>
+    <span class="rec-time">${timeStr}</span>
+  `;
+  list.appendChild(item);
+}
+
+// ─── UTILS ────────────────────────────────────────────────────────────
+function copyRoomLink() {
+  const room = document.getElementById('roomInput')?.value || document.getElementById('roomTag').textContent.replace('Room: ','');
+  const text = `Join our school podcast!\nOpen SchoolCast and enter room code: ${room}`;
+  navigator.clipboard.writeText(text).then(() => {
+    setStatus('studioStatus', '✅ Room code copied! Share with your partner.', 'success');
+    setTimeout(() => setStatus('studioStatus', '', ''), 3000);
+  });
+}
+
+function copyNotes() {
+  const notes = document.getElementById('notesArea').value;
+  if (!notes) { return; }
+  navigator.clipboard.writeText(notes).then(() => {
+    setStatus('studioStatus', '📋 Notes copied!', 'success');
+    setTimeout(() => setStatus('studioStatus', '', ''), 2000);
+  });
+}
+
+function leaveStudio() {
+  peerConnection?.close();
+  localStream?.getTracks().forEach(t => t.stop());
+  clearInterval(timerInterval);
+  bc?.close();
+  document.getElementById('studioSection').style.display = 'none';
+  document.getElementById('recordingsCard').style.display = 'none';
+  document.getElementById('joinSection').style.display = 'block';
+  document.getElementById('liveBadge').classList.remove('active');
+  setStatus('joinStatus', '👋 Left the studio. Ready to rejoin!', 'success');
+}
+
+// Keyboard shortcut: Space to advance script
+document.addEventListener('keydown', e => {
+  if (e.code === 'ArrowRight' || e.code === 'ArrowDown') {
+    if (activeQ < scriptQuestions.length - 1) setActiveQ(activeQ + 1);
+  }
+  if (e.code === 'ArrowLeft' || e.code === 'ArrowUp') {
+    if (activeQ > 0) setActiveQ(activeQ - 1);
+  }
+});
+</script>
+</body>
+</html>
